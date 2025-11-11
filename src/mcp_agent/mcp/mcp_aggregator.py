@@ -218,9 +218,9 @@ class MCPAggregator(ContextDependent):
                 def session_factory(read_stream, write_stream, read_timeout, **kwargs):
                     # Get agent's model if this aggregator is part of an agent
                     agent_model = None
-                    if hasattr(self, 'config') and self.config and hasattr(self.config, 'model'):
+                    if hasattr(self, "config") and self.config and hasattr(self.config, "model"):
                         agent_model = self.config.model
-                    
+
                     return MCPAgentClientSession(
                         read_stream,
                         write_stream,
@@ -228,7 +228,7 @@ class MCPAggregator(ContextDependent):
                         server_name=server_name,
                         agent_model=agent_model,
                         tool_list_changed_callback=self._handle_tool_list_changed,
-                        **kwargs  # Pass through any additional kwargs like server_config
+                        **kwargs,  # Pass through any additional kwargs like server_config
                     )
 
                 await self._persistent_connection_manager.get_server(
@@ -279,9 +279,9 @@ class MCPAggregator(ContextDependent):
                 def create_session(read_stream, write_stream, read_timeout, **kwargs):
                     # Get agent's model if this aggregator is part of an agent
                     agent_model = None
-                    if hasattr(self, 'config') and self.config and hasattr(self.config, 'model'):
+                    if hasattr(self, "config") and self.config and hasattr(self.config, "model"):
                         agent_model = self.config.model
-                    
+
                     return MCPAgentClientSession(
                         read_stream,
                         write_stream,
@@ -289,7 +289,7 @@ class MCPAggregator(ContextDependent):
                         server_name=server_name,
                         agent_model=agent_model,
                         tool_list_changed_callback=self._handle_tool_list_changed,
-                        **kwargs  # Pass through any additional kwargs like server_config
+                        **kwargs,  # Pass through any additional kwargs like server_config
                     )
 
                 async with gen_client(
@@ -510,6 +510,17 @@ class MCPAggregator(ContextDependent):
         # This handles both namespaced and non-namespaced direct lookups
         if resource_type == "tool" and name in self._namespaced_tool_map:
             namespaced_tool = self._namespaced_tool_map[name]
+
+            logger.info(
+                "Parse Resource Name - Direct Match Found",
+                data={
+                    "progress_action": ProgressAction.CALLING_TOOL,
+                    "name": namespaced_tool,
+                    "server_name": namespaced_tool.server_name,
+                    "tool_name": namespaced_tool.tool.name,
+                },
+            )
+
             return namespaced_tool.server_name, namespaced_tool.tool.name
 
         # Next, attempt to interpret as a namespaced name
@@ -519,6 +530,14 @@ class MCPAggregator(ContextDependent):
 
             # Validate that the parsed server actually exists
             if server_name in self.server_names:
+                logger.info(
+                    "Parse Resource Name - ServerName Parsed",
+                    data={
+                        "progress_action": ProgressAction.CALLING_TOOL,
+                        "server_name": server_name,
+                        "tool_name": local_name,
+                    },
+                )
                 return server_name, local_name
 
             # If the server name doesn't exist, it might be a tool with a hyphen in its name
@@ -529,9 +548,26 @@ class MCPAggregator(ContextDependent):
             for server_name, tools in self._server_to_tool_map.items():
                 for namespaced_tool in tools:
                     if namespaced_tool.tool.name == name:
+                        logger.info(
+                            "Parse Resource Name - Nested Search Found",
+                            data={
+                                "progress_action": ProgressAction.CALLING_TOOL,
+                                "server_name": server_name,
+                                "tool_name": name,
+                            },
+                        )
                         return server_name, name
 
-        # For all other resource types, use the first server
+                # For all other resource types, use the first server
+
+        logger.info(
+            "Parse Resource Name - Catchall",
+            data={
+                "progress_action": ProgressAction.CALLING_TOOL,
+                "server_name": self.server_names[0] if self.server_names else None,
+                "tool_name": name,
+            },
+        )
         return (self.server_names[0] if self.server_names else None, name)
 
     async def call_tool(self, name: str, arguments: dict | None = None) -> CallToolResult:
@@ -816,7 +852,9 @@ class MCPAggregator(ContextDependent):
             messages=[],
         )
 
-    async def list_prompts(self, server_name: str | None = None, agent_name: str | None = None) -> Mapping[str, List[Prompt]]:
+    async def list_prompts(
+        self, server_name: str | None = None, agent_name: str | None = None
+    ) -> Mapping[str, List[Prompt]]:
         """
         List available prompts from one or all servers.
 
