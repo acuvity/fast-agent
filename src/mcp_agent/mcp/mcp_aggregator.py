@@ -555,9 +555,12 @@ class MCPAggregator(ContextDependent):
             "Requesting tool call",
             data={
                 "progress_action": ProgressAction.CALLING_TOOL,
+                "name": name,
                 "tool_name": local_tool_name,
                 "server_name": server_name,
                 "agent_name": self.agent_name,
+                "server_tool_map": self._server_to_tool_map,
+                "namespaced_tool_map": self._namespaced_tool_map,
             },
         )
 
