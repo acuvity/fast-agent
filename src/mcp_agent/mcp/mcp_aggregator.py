@@ -339,7 +339,9 @@ class MCPAggregator(ContextDependent):
                     "server_name": server_name,
                     "agent_name": self.agent_name,
                     "tool_count": len(tools),
+                    "tools": [tool.name for tool in tools],
                     "prompt_count": len(prompts),
+                    "prompts": [prompt.name for prompt in prompts],
                 },
             )
 
